@@ -143,81 +143,98 @@ const TCP_PORT = 21003;          // Altere para a porta desejada
   </main>
 
   <script>
-    function processFile() {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
-      const statusMessage = document.getElementById('statusMessage');
+  function processFile() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    const statusMessage = document.getElementById('statusMessage');
 
-      if (!file) {
-        alert("Selecione um arquivo .txt primeiro!");
-        return;
-      }
+    if (!file) {
+      alert("Selecione um arquivo .txt primeiro!");
+      return;
+    }
 
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        const text = event.target.result;
+    const reader = new FileReader();
+    reader.onload = function(event) {
+      const text = event.target.result;
 
-        const matches = [...text.matchAll(/\{([^}]*)\}/g)];
-        const cleanedLines = [];
+      // Remove linhas com "<<--" (respostas do servidor)
+const filteredText = text
+  .split('\n')
+  .filter(line => !line.includes('<<--'))
+  .join('\n');
 
-// Para cada bloco entre { }
-matches.forEach(m => {
-  const raw = m[1]
-    .replace(/[\r\n]/g, '') // remove quebras de linha
-    .replace(/\s+/g, '');   // remove todos os espaços
+// Agora extrai apenas os blocos válidos entre { }
+const matches = [...filteredText.matchAll(/\{([^}]*)\}/g)];
 
-  // Separa pacotes múltiplos dentro do bloco pelo fim 0D0A
-  const packets = raw.split(/(?<=0D0A)/i).filter(p => p); // quebra e remove vazios
+      const cleanedLines = [];
 
-  cleanedLines.push(...packets);
-});
+      // Para cada bloco entre { }
+      matches.forEach(m => {
+        const raw = m[1]
+          .replace(/[\r\n]/g, '') // remove quebras de linha
+          .replace(/\s+/g, '');   // remove todos os espaços
 
+        // Separa pacotes múltiplos dentro do bloco pelo fim 0D0A
+        const packets = raw.split(/(?<=0D0A)/i).filter(p => p); // quebra e remove vazios
 
+        cleanedLines.push(...packets);
+      });
 
-        let loginFound = false;
-        let loginAtStart = false;
-        let loginPacket = null;
-
-        if (cleanedLines.length > 0 && cleanedLines[0].substring(6, 8) === '01') {
-          loginAtStart = true;
-          loginFound = true;
-        } else {
-          for (let i = 0; i < cleanedLines.length; i++) {
-            const protocol = cleanedLines[i].substring(6, 8);
-            if (protocol === '01') {
-              loginPacket = cleanedLines[i];
-              loginFound = true;
-              cleanedLines.splice(i, 1);
-              cleanedLines.unshift(loginPacket);
-              break;
-            }
-          }
-        }
-
-        let status = "";
-        if (loginAtStart) {
-          status = "✅ O pacote de login já estava no início do arquivo.";
-        } else if (loginFound) {
-          status = "⚠️ O pacote de login não estava no início e foi movido para o topo.\n";
-          status += "📦 Pacote inserido no início:\n" + loginPacket;
-        } else {
-          status = "❌ Nenhum pacote de login foi encontrado no arquivo!";
-        }
-
-        const finalText = cleanedLines.join('\n');
-        const blob = new Blob([finalText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-
-        const downloadLink = document.getElementById('downloadLink');
-        downloadLink.href = url;
-        downloadLink.style.display = 'inline';
-        downloadLink.innerText = 'Baixar resultado';
-
-        statusMessage.innerText = status;
+      // Remover ACKs (respostas de 20 caracteres com protocolo 01, 22, A0)
+      const ackProtocols = ['01', '22', 'A0'];
+      const isAck = (packet) => {
+        return packet.length === 20 &&
+               packet.startsWith('787805') &&
+               ackProtocols.includes(packet.substring(6, 8).toUpperCase());
       };
 
-      reader.readAsText(file);
-    }
-  </script>
+      const cleanedWithoutAck = cleanedLines.filter(packet => !isAck(packet));
+
+      let loginFound = false;
+      let loginAtStart = false;
+      let loginPacket = null;
+
+      if (cleanedWithoutAck.length > 0 && cleanedWithoutAck[0].substring(6, 8) === '01') {
+        loginAtStart = true;
+        loginFound = true;
+      } else {
+        for (let i = 0; i < cleanedWithoutAck.length; i++) {
+          const protocol = cleanedWithoutAck[i].substring(6, 8);
+          if (protocol === '01') {
+            loginPacket = cleanedWithoutAck[i];
+            loginFound = true;
+            cleanedWithoutAck.splice(i, 1);
+            cleanedWithoutAck.unshift(loginPacket);
+            break;
+          }
+        }
+      }
+
+      let status = "";
+      if (loginAtStart) {
+        status = "✅ O pacote de login já estava no início do arquivo.";
+      } else if (loginFound) {
+        status = "⚠️ O pacote de login não estava no início e foi movido para o topo.\n";
+        status += "📦 Pacote inserido no início:\n" + loginPacket;
+      } else {
+        status = "❌ Nenhum pacote de login foi encontrado no arquivo!";
+      }
+
+      const finalText = cleanedWithoutAck.join('\n');
+      const blob = new Blob([finalText], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+
+      const downloadLink = document.getElementById('downloadLink');
+      downloadLink.href = url;
+      downloadLink.style.display = 'inline';
+      downloadLink.innerText = 'Baixar resultado';
+
+      statusMessage.innerText = status;
+    };
+
+    reader.readAsText(file);
+  }
+</script>
+
 </body>
 </html>
