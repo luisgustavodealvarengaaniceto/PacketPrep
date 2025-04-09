@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Extrair dados entre chaves</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4faff;
+      color: #1a1a1a;
+    }
+    header {
+      background-color: #007acc;
+      color: white;
+      padding: 20px;
+      text-align: center;
+    }
+    main {
+      max-width: 800px;
+      margin: 30px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      color: #007acc;
+    }
+    button {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:hover {
+      background-color: #005f99;
+    }
+    a#downloadLink {
+      display: inline-block;
+      margin-top: 10px;
+      text-decoration: none;
+      color: white;
+      background: #00aaff;
+      padding: 10px 15px;
+      border-radius: 5px;
+    }
+    #statusMessage {
+      white-space: pre-wrap;
+      margin-top: 20px;
+      font-family: monospace;
+      background: #eef9ff;
+      padding: 10px;
+      border-left: 5px solid #007acc;
+    }
+    ol li {
+      margin-bottom: 10px;
+    }
+    code {
+      background: #e1f0ff;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    pre {
+      background: #f0f8ff;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    #tutorial {
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Extrator de Pacotes { }</h1>
+    <p>Gere arquivos prontos para envio com o Package</p>
+  </header>
+  <main>
+    <input type="file" id="fileInput" accept=".txt" />
+    <button onclick="processFile()">Processar</button>
+    <a id="downloadLink" style="display: none;" download="packet.txt">Baixar resultado</a>
+    <div id="statusMessage"></div>
+
+    <div id="tutorial">
+      <h2>📘 Tutorial completo: Como usar o Package</h2>
+      <p><strong>⚠️ Importante:</strong> O primeiro pacote <strong>deve ser um pacote de LOGIN</strong>, ou o sistema não conseguirá se conectar ao servidor. Este site garante isso automaticamente.</p>
+
+      <h3>1. Instalação do Node.js</h3>
+      <ol>
+        <li>Baixe o <strong>Node.js</strong> na versão mais recente do site oficial.</li>
+        <li>Instale o Node.js (apenas vá clicando em <strong>Next</strong> até terminar).</li>
+        <li>Abra o <strong>CMD</strong> e digite:
+          <br><code>node -v</code><br>
+          Você deve ver algo como: <code>v22.14.0</code>
+        </li>
+      </ol>
+
+      <h3>2. Preparação do ambiente</h3>
+      <ol start="4">
+        <li>Vá até a pasta onde está o script do Package e copie o caminho da pasta.</li>
+        <li>No CMD, navegue até essa pasta usando:
+          <br><code>cd C:\Users\SeuUsuario\Downloads\package</code>
+        </li>
+        <li>Instale os pacotes do projeto com:
+          <br><code>npm install</code>
+        </li>
+        <li><strong>Antes de iniciar</strong>, copie o arquivo gerado por este site (<code>packet.txt</code>) para dentro da pasta do Package, onde está o script.</li>
+        <li>Execute o programa com:
+          <br><code>npm start</code>
+        </li>
+      </ol>
+
+      <h3>3. Envio dos pacotes para a plataforma</h3>
+      <p>Você verá no terminal os pacotes sendo enviados:</p>
+      <pre>
+Conectado a gtw.yuv.com.br:21003
+Enviando pacote: 787811010862632070134223806512C901E416FF0D0A
+Resposta recebida: 7878050101e470a70d0a
+...
+      </pre>
+      <p><strong>Ctrl + C</strong> encerra o envio manualmente.</p>
+      <p>O sistema pode pedir para digitar <strong>S</strong> (continuar) ou <strong>N</strong> (parar).</p>
+
+      <h3>4. Alterar IP e porta (opcional)</h3>
+      <ol start="9">
+        <li>Abra o arquivo <code>index.js</code> na pasta do Package.</li>
+        <li>Altere as seguintes linhas, se necessário:
+          <pre>
+const TCP_IP = 'gtw.yuv.com.br'; // Altere para o IP desejado
+const TCP_PORT = 21003;          // Altere para a porta desejada
+          </pre>
+        </li>
+        <li>Certifique-se de que o equipamento está cadastrado na plataforma para que o gateway aceite os dados.</li>
+      </ol>
+    </div>
+  </main>
+
+  <script>
+    function processFile() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const statusMessage = document.getElementById('statusMessage');
+
+      if (!file) {
+        alert("Selecione um arquivo .txt primeiro!");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        const text = event.target.result;
+
+        const matches = [...text.matchAll(/\{([^}]*)\}/g)];
+        const cleanedLines = matches.map(m => m[1].replace(/\s/g, ''));
+
+        let loginFound = false;
+        let loginAtStart = false;
+        let loginPacket = null;
+
+        if (cleanedLines.length > 0 && cleanedLines[0].substring(6, 8) === '01') {
+          loginAtStart = true;
+          loginFound = true;
+        } else {
+          for (let i = 0; i < cleanedLines.length; i++) {
+            const protocol = cleanedLines[i].substring(6, 8);
+            if (protocol === '01') {
+              loginPacket = cleanedLines[i];
+              loginFound = true;
+              cleanedLines.splice(i, 1);
+              cleanedLines.unshift(loginPacket);
+              break;
+            }
+          }
+        }
+
+        let status = "";
+        if (loginAtStart) {
+          status = "✅ O pacote de login já estava no início do arquivo.";
+        } else if (loginFound) {
+          status = "⚠️ O pacote de login não estava no início e foi movido para o topo.\n";
+          status += "📦 Pacote inserido no início:\n" + loginPacket;
+        } else {
+          status = "❌ Nenhum pacote de login foi encontrado no arquivo!";
+        }
+
+        const finalText = cleanedLines.join('\n');
+        const blob = new Blob([finalText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+
+        const downloadLink = document.getElementById('downloadLink');
+        downloadLink.href = url;
+        downloadLink.style.display = 'inline';
+        downloadLink.innerText = 'Baixar resultado';
+
+        statusMessage.innerText = status;
+      };
+
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
